@@ -1,6 +1,29 @@
 # main.py
 import os
 import sys
+
+# NUMPY COMPATIBILITY FIX - MUST BE AT THE VERY TOP
+try:
+    import numpy as np
+    # Fix for numpy._core compatibility issue
+    if not hasattr(np, '_core'):
+        try:
+            # Try to import core and assign to _core
+            import numpy.core as _core
+            np._core = _core
+            print("✅ Applied NumPy _core compatibility fix")
+        except ImportError as e:
+            print(f"⚠️  NumPy core import issue: {e}")
+            # If that fails, create a minimal dummy
+            class DummyCore:
+                pass
+            np._core = DummyCore()
+            print("⚠️  Created dummy _core attribute")
+    print(f"✅ NumPy version: {np.__version__}")
+except ImportError as e:
+    print(f"❌ NumPy import failed: {e}")
+    sys.exit(1)
+
 import PIL
 from PIL import Image
 
@@ -28,7 +51,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
 import pandas as pd
-import numpy as np
 import re
 import json
 from datetime import datetime
@@ -150,7 +172,6 @@ def load_system_components():
         
         # Test NumPy import first with detailed diagnostics
         try:
-            import numpy as np
             print(f"✅ NumPy version: {np.__version__}")
             print(f"✅ NumPy path: {np.__file__}")
             
@@ -161,7 +182,7 @@ def load_system_components():
             except ImportError as e:
                 print(f"❌ NumPy core issue: {e}")
                 
-        except ImportError as e:
+        except Exception as e:
             print(f"❌ NumPy import failed: {e}")
             return None
         
@@ -335,7 +356,6 @@ async def model_status():
     # Get package versions
     package_versions = {}
     try:
-        import numpy as np
         package_versions['numpy'] = np.__version__
     except ImportError:
         package_versions['numpy'] = 'Not available'
