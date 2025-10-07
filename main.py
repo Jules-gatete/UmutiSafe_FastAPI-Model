@@ -2,24 +2,45 @@
 import os
 import sys
 
-# NUMPY COMPATIBILITY FIX - MUST BE AT THE VERY TOP
+# COMPREHENSIVE NUMPY COMPATIBILITY FIX
 try:
     import numpy as np
-    # Fix for numpy._core compatibility issue
+    print(f"✅ NumPy version: {np.__version__}")
+    
+    # Create comprehensive _core compatibility
     if not hasattr(np, '_core'):
         try:
-            # Try to import core and assign to _core
-            import numpy.core as _core
-            np._core = _core
-            print("✅ Applied NumPy _core compatibility fix")
+            # Try to import all possible core modules
+            import numpy.core as core
+            import numpy.core.multiarray as multiarray
+            import numpy.core.numeric as numeric
+            import numpy.core.umath as umath
+            import numpy.core._multiarray_umath as _multiarray_umath
+            
+            # Create a comprehensive _core module
+            class NumpyCoreCompat:
+                def __init__(self):
+                    self.multiarray = multiarray
+                    self.numeric = numeric
+                    self.umath = umath
+                    self._multiarray_umath = _multiarray_umath
+                    # Add other core attributes that might be needed
+                    for attr in dir(core):
+                        if not attr.startswith('_'):
+                            setattr(self, attr, getattr(core, attr))
+            
+            np._core = NumpyCoreCompat()
+            print("✅ Applied comprehensive NumPy _core compatibility fix")
+            
         except ImportError as e:
-            print(f"⚠️  NumPy core import issue: {e}")
-            # If that fails, create a minimal dummy
+            print(f"⚠️  NumPy core import issues: {e}")
+            # Create a minimal dummy _core as fallback
             class DummyCore:
-                pass
+                def __getattr__(self, name):
+                    return None
             np._core = DummyCore()
-            print("⚠️  Created dummy _core attribute")
-    print(f"✅ NumPy version: {np.__version__}")
+            print("⚠️  Created minimal _core fallback")
+    
 except ImportError as e:
     print(f"❌ NumPy import failed: {e}")
     sys.exit(1)
@@ -29,20 +50,17 @@ from PIL import Image
 
 # Comprehensive PIL ANTIALIAS fix
 try:
-    # Try different possible locations for the resampling attribute
     if hasattr(Image, 'Resampling'):
         PIL.Image.ANTIALIAS = Image.Resampling.LANCZOS
     elif hasattr(Image, 'LANCZOS'):
         PIL.Image.ANTIALIAS = Image.LANCZOS
     else:
-        # If neither is available, define a fallback
         PIL.Image.ANTIALIAS = 1
         print("⚠️  Using fallback for ANTIALIAS")
-    
     print("✅ PIL ANTIALIAS patched successfully")
 except Exception as e:
     print(f"⚠️  PIL patch warning: {e}")
-    PIL.Image.ANTIALIAS = 1  # Fallback value
+    PIL.Image.ANTIALIAS = 1
 
 print(f"📦 PIL version: {PIL.__version__}")
 
@@ -65,11 +83,10 @@ from medicine_disposal_predictor import MedicineDisposalPredictor
 
 # JSON Serialization Helpers
 def convert_numpy_types(obj):
-    """Recursively convert numpy types to native Python types, including dictionary keys"""
+    """Recursively convert numpy types to native Python types"""
     if isinstance(obj, dict):
         converted_dict = {}
         for key, value in obj.items():
-            # Convert key to string if it's a numpy type
             if isinstance(key, (np.integer, np.int32, np.int64)):
                 converted_key = int(key)
             elif isinstance(key, (np.floating, np.float32, np.float64)):
@@ -79,7 +96,6 @@ def convert_numpy_types(obj):
             else:
                 converted_key = key
             
-            # Ensure key is string for JSON serialization
             if not isinstance(converted_key, (str, int, float, bool)) and converted_key is not None:
                 converted_key = str(converted_key)
             
@@ -102,12 +118,11 @@ def convert_numpy_types(obj):
     else:
         return obj
 
-# Load the disposal guidelines from your Python file
+# Load the disposal guidelines
 disposal_guidelines = {}
 try:
     disposal_guidelines_db_path = './data/processed/disposal_guidelines_db.py'
     if os.path.exists(disposal_guidelines_db_path):
-        # Import the disposal_guidelines dictionary properly
         spec = importlib.util.spec_from_file_location("disposal_guidelines_db", disposal_guidelines_db_path)
         disposal_guidelines_module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(disposal_guidelines_module)
@@ -170,23 +185,9 @@ def load_system_components():
         
         print("🔍 Starting system components loading...")
         
-        # Test NumPy import first with detailed diagnostics
-        try:
-            print(f"✅ NumPy version: {np.__version__}")
-            print(f"✅ NumPy path: {np.__file__}")
-            
-            # Test if we can access core modules
-            try:
-                import numpy.core as core
-                print("✅ NumPy core module accessible")
-            except ImportError as e:
-                print(f"❌ NumPy core issue: {e}")
-                
-        except Exception as e:
-            print(f"❌ NumPy import failed: {e}")
-            return None
+        # Check package versions
+        print(f"✅ NumPy version: {np.__version__}")
         
-        # Test scikit-learn import
         try:
             import sklearn
             print(f"✅ scikit-learn version: {sklearn.__version__}")
@@ -194,15 +195,7 @@ def load_system_components():
             print(f"❌ scikit-learn import failed: {e}")
             return None
         
-        # Test joblib import
-        try:
-            import joblib as jb
-            print(f"✅ joblib version: {jb.__version__}")
-        except ImportError as e:
-            print(f"❌ joblib import failed: {e}")
-            return None
-        
-        # Check if model files exist with detailed info
+        # Check if model files exist
         required_files = [
             'best_category_model.pkl',
             'best_risk_model.pkl', 
@@ -212,13 +205,10 @@ def load_system_components():
         ]
         
         missing_files = []
-        available_files = []
-        
         for file in required_files:
             file_path = f'{base_path}{file}'
             if os.path.exists(file_path):
                 file_size = os.path.getsize(file_path)
-                available_files.append(file)
                 print(f"✅ Found: {file} ({file_size} bytes)")
             else:
                 missing_files.append(file)
@@ -226,68 +216,41 @@ def load_system_components():
         
         if missing_files:
             print(f"❌ Missing model files: {', '.join(missing_files)}")
-            print(f"✅ Available files: {', '.join(available_files)}")
             return None
         
-        print("🔄 Starting to load individual components...")
-        
-        # Load components one by one with detailed error handling
+        # Load components with enhanced error handling
         components = {}
         
-        # 1. Load label encoders first (usually simpler)
         try:
-            print("🔄 Loading label encoders...")
+            print("🔄 Loading components with compatibility workaround...")
+            
+            # Load components one by one with specific error handling
             components['le_category'] = joblib.load(f'{base_path}le_category.pkl')
             print("✅ LabelEncoder for category loaded")
             
             components['le_risk'] = joblib.load(f'{base_path}le_risk.pkl')
             print("✅ LabelEncoder for risk loaded")
-        except Exception as e:
-            print(f"❌ Failed to load label encoders: {e}")
-            import traceback
-            print(f"Label encoder error details: {traceback.format_exc()}")
-            return None
-        
-        # 2. Load TF-IDF vectorizer
-        try:
-            print("🔄 Loading TF-IDF vectorizer...")
+            
             components['tfidf_vectorizer'] = joblib.load(f'{base_path}tfidf_vectorizer.pkl')
             print("✅ TF-IDF vectorizer loaded")
-        except Exception as e:
-            print(f"❌ Failed to load TF-IDF vectorizer: {e}")
-            import traceback
-            print(f"TF-IDF error details: {traceback.format_exc()}")
-            return None
-        
-        # 3. Load ML models (most likely to have compatibility issues)
-        try:
-            print("🔄 Loading category model...")
+            
             components['category_model'] = joblib.load(f'{base_path}best_category_model.pkl')
-            print(f"✅ Category model loaded: {type(components['category_model'])}")
-        except Exception as e:
-            print(f"❌ Failed to load category model: {e}")
-            import traceback
-            print(f"Category model error details: {traceback.format_exc()}")
-            return None
-        
-        try:
-            print("🔄 Loading risk model...")
+            print("✅ Category model loaded")
+            
             components['risk_model'] = joblib.load(f'{base_path}best_risk_model.pkl')
-            print(f"✅ Risk model loaded: {type(components['risk_model'])}")
+            print("✅ Risk model loaded")
+            
+            print("🎉 All system components loaded successfully!")
+            return components
+            
         except Exception as e:
-            print(f"❌ Failed to load risk model: {e}")
+            print(f"❌ Error loading model components: {e}")
             import traceback
-            print(f"Risk model error details: {traceback.format_exc()}")
+            print(f"Detailed error: {traceback.format_exc()}")
             return None
-        
-        # Verify all components are loaded
-        loaded_components = list(components.keys())
-        print(f"🎉 All system components loaded successfully: {', '.join(loaded_components)}")
-        
-        return components
         
     except Exception as e:
-        print(f"❌ Critical error loading components: {e}")
+        print(f"❌ Critical error in load_system_components: {e}")
         import traceback
         print(f"Detailed traceback: {traceback.format_exc()}")
         return None
@@ -315,8 +278,7 @@ async def root():
         status_info["endpoints"] = {
             "health": "/health",
             "docs": "/docs",
-            "guidelines": "/api/guidelines",
-            "model_status": "/api/models/status"
+            "guidelines": "/api/guidelines"
         }
         status_info["note"] = "Prediction endpoints unavailable - ML models not loaded"
     
@@ -332,61 +294,11 @@ async def health_check():
         "startup_error": startup_error
     }
 
-# Model status endpoint
-@app.get("/api/models/status")
-async def model_status():
-    """Check the status of all ML models"""
-    base_path = './models/'
-    required_files = [
-        'best_category_model.pkl',
-        'best_risk_model.pkl', 
-        'le_category.pkl',
-        'le_risk.pkl',
-        'tfidf_vectorizer.pkl'
-    ]
-    
-    available_files = []
-    for file in required_files:
-        if os.path.exists(f'{base_path}{file}'):
-            file_size = os.path.getsize(f'{base_path}{file}')
-            available_files.append({"file": file, "size_bytes": file_size})
-    
-    missing_files = [f for f in required_files if f not in [af["file"] for af in available_files]]
-    
-    # Get package versions
-    package_versions = {}
-    try:
-        package_versions['numpy'] = np.__version__
-    except ImportError:
-        package_versions['numpy'] = 'Not available'
-    
-    try:
-        import sklearn
-        package_versions['scikit-learn'] = sklearn.__version__
-    except ImportError:
-        package_versions['scikit-learn'] = 'Not available'
-    
-    try:
-        import joblib as jb
-        package_versions['joblib'] = jb.__version__
-    except ImportError:
-        package_versions['joblib'] = 'Not available'
-    
-    return {
-        "models_loaded": components_loaded,
-        "available_files": available_files,
-        "missing_files": missing_files,
-        "package_versions": package_versions,
-        "components_loaded": list(predictor.components.keys()) if components_loaded and predictor else []
-    }
-
 # Image prediction endpoint
 @app.post("/api/predict/image")
 async def predict_from_image(file: UploadFile = File(...)):
     """
     Predict disposal category and risk level from medicine label image
-    
-    - **file**: Upload a clear image of medicine label (JPEG, PNG, JPG)
     """
     if not components_loaded or predictor is None:
         raise HTTPException(
@@ -394,7 +306,6 @@ async def predict_from_image(file: UploadFile = File(...)):
             detail="Service unavailable - ML models not loaded. Please check server logs."
         )
     
-    # Validate file type
     allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
     if file.content_type not in allowed_types:
         raise HTTPException(
@@ -403,15 +314,9 @@ async def predict_from_image(file: UploadFile = File(...)):
         )
     
     try:
-        # Read image data
         image_data = await file.read()
-        
-        # Process with predictor
         result = predictor.predict_from_image(image_data)
-        
-        # Convert numpy types to native Python types
         result = convert_numpy_types(result)
-        
         return JSONResponse(content=result)
         
     except Exception as e:
@@ -427,11 +332,6 @@ async def predict_from_text(
 ):
     """
     Predict disposal category and risk level from text input
-    
-    - **generic_name**: Required - Medicine generic name with strength
-    - **brand_name**: Optional - Brand name
-    - **dosage_form**: Optional - Dosage form
-    - **packaging_type**: Optional - Packaging type
     """
     if not components_loaded or predictor is None:
         raise HTTPException(
@@ -446,10 +346,7 @@ async def predict_from_text(
             dosage_form=dosage_form,
             packaging_type=packaging_type
         )
-        
-        # Convert numpy types to native Python types
         result = convert_numpy_types(result)
-        
         return JSONResponse(content=result)
         
     except Exception as e:
@@ -460,24 +357,6 @@ async def predict_from_text(
 async def batch_predict(medicines: list):
     """
     Batch prediction for multiple medicines
-    
-    Request body example:
-    ```json
-    [
-        {
-            "generic_name": "Amoxicillin 500mg",
-            "brand_name": "Amoxil",
-            "dosage_form": "Capsules",
-            "packaging_type": "Blister"
-        },
-        {
-            "generic_name": "Paracetamol 500mg",
-            "brand_name": "Panadol",
-            "dosage_form": "Tablets", 
-            "packaging_type": "Bottle"
-        }
-    ]
-    ```
     """
     if not components_loaded or predictor is None:
         raise HTTPException(
@@ -494,7 +373,6 @@ async def batch_predict(medicines: list):
                 dosage_form=medicine.get('dosage_form', ''),
                 packaging_type=medicine.get('packaging_type', 'Unknown')
             )
-            # Convert numpy types for each result
             results.append(convert_numpy_types(result))
         
         return {
@@ -517,7 +395,6 @@ async def get_guidelines():
             "categories": list(disposal_guidelines.keys()),
             "guidelines": disposal_guidelines
         }
-            
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error loading guidelines: {str(e)}")
 
@@ -540,34 +417,12 @@ async def get_statistics():
         }
     }
 
-# Error handlers
-@app.exception_handler(500)
-async def internal_server_error_handler(request, exc):
-    return JSONResponse(
-        status_code=500,
-        content={"detail": "Internal server error", "error": str(exc)}
-    )
-
-@app.exception_handler(404)
-async def not_found_handler(request, exc):
-    return JSONResponse(
-        status_code=404,
-        content={"detail": "Endpoint not found"}
-    )
-
-@app.exception_handler(503)
-async def service_unavailable_handler(request, exc):
-    return JSONResponse(
-        status_code=503,
-        content={"detail": str(exc.detail)}
-    )
-
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
         port=port,
-        reload=False,  # Disable reload in production
+        reload=False,
         log_level="info"
     )
