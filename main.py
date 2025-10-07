@@ -1,19 +1,24 @@
 # main.py
 import os
-import PIL.Image
 import PIL
+from PIL import Image
 
-# Fix for PIL ANTIALIAS issue - MUST BE AT THE TOP
-if not hasattr(PIL.Image, 'ANTIALIAS'):
-    if hasattr(PIL.Image, 'Resampling'):
-        PIL.Image.ANTIALIAS = PIL.Image.Resampling.LANCZOS
-        print("✅ Patched ANTIALIAS to Resampling.LANCZOS")
-    elif hasattr(PIL.Image, 'LANCZOS'):
-        PIL.Image.ANTIALIAS = PIL.Image.LANCZOS
-        print("✅ Patched ANTIALIAS to LANCZOS")
+# Comprehensive PIL ANTIALIAS fix
+try:
+    # Try different possible locations for the resampling attribute
+    if hasattr(Image, 'Resampling'):
+        PIL.Image.ANTIALIAS = Image.Resampling.LANCZOS
+    elif hasattr(Image, 'LANCZOS'):
+        PIL.Image.ANTIALIAS = Image.LANCZOS
     else:
-        PIL.Image.ANTIALIAS = None
-        print("⚠️  Could not patch ANTIALIAS")
+        # If neither is available, define a fallback
+        PIL.Image.ANTIALIAS = 1
+        print("⚠️  Using fallback for ANTIALIAS")
+    
+    print("✅ PIL ANTIALIAS patched successfully")
+except Exception as e:
+    print(f"⚠️  PIL patch warning: {e}")
+    PIL.Image.ANTIALIAS = 1  # Fallback value
 
 print(f"📦 PIL version: {PIL.__version__}")
 
