@@ -1,5 +1,6 @@
 # main.py
 import os
+import sys
 import PIL
 from PIL import Image
 
@@ -145,7 +146,42 @@ def load_system_components():
     try:
         base_path = './models/'
         
-        # Check if model files exist
+        print("🔍 Starting system components loading...")
+        
+        # Test NumPy import first with detailed diagnostics
+        try:
+            import numpy as np
+            print(f"✅ NumPy version: {np.__version__}")
+            print(f"✅ NumPy path: {np.__file__}")
+            
+            # Test if we can access core modules
+            try:
+                import numpy.core as core
+                print("✅ NumPy core module accessible")
+            except ImportError as e:
+                print(f"❌ NumPy core issue: {e}")
+                
+        except ImportError as e:
+            print(f"❌ NumPy import failed: {e}")
+            return None
+        
+        # Test scikit-learn import
+        try:
+            import sklearn
+            print(f"✅ scikit-learn version: {sklearn.__version__}")
+        except ImportError as e:
+            print(f"❌ scikit-learn import failed: {e}")
+            return None
+        
+        # Test joblib import
+        try:
+            import joblib as jb
+            print(f"✅ joblib version: {jb.__version__}")
+        except ImportError as e:
+            print(f"❌ joblib import failed: {e}")
+            return None
+        
+        # Check if model files exist with detailed info
         required_files = [
             'best_category_model.pkl',
             'best_risk_model.pkl', 
@@ -155,27 +191,84 @@ def load_system_components():
         ]
         
         missing_files = []
+        available_files = []
+        
         for file in required_files:
-            if not os.path.exists(f'{base_path}{file}'):
+            file_path = f'{base_path}{file}'
+            if os.path.exists(file_path):
+                file_size = os.path.getsize(file_path)
+                available_files.append(file)
+                print(f"✅ Found: {file} ({file_size} bytes)")
+            else:
                 missing_files.append(file)
+                print(f"❌ Missing: {file}")
         
         if missing_files:
-            print(f"⚠️  Missing model files: {', '.join(missing_files)}")
+            print(f"❌ Missing model files: {', '.join(missing_files)}")
+            print(f"✅ Available files: {', '.join(available_files)}")
             return None
         
-        components = {
-            'category_model': joblib.load(f'{base_path}best_category_model.pkl'),
-            'risk_model': joblib.load(f'{base_path}best_risk_model.pkl'),
-            'le_category': joblib.load(f'{base_path}le_category.pkl'),
-            'le_risk': joblib.load(f'{base_path}le_risk.pkl'),
-            'tfidf_vectorizer': joblib.load(f'{base_path}tfidf_vectorizer.pkl')
-        }
+        print("🔄 Starting to load individual components...")
         
-        print("✅ All system components loaded successfully")
+        # Load components one by one with detailed error handling
+        components = {}
+        
+        # 1. Load label encoders first (usually simpler)
+        try:
+            print("🔄 Loading label encoders...")
+            components['le_category'] = joblib.load(f'{base_path}le_category.pkl')
+            print("✅ LabelEncoder for category loaded")
+            
+            components['le_risk'] = joblib.load(f'{base_path}le_risk.pkl')
+            print("✅ LabelEncoder for risk loaded")
+        except Exception as e:
+            print(f"❌ Failed to load label encoders: {e}")
+            import traceback
+            print(f"Label encoder error details: {traceback.format_exc()}")
+            return None
+        
+        # 2. Load TF-IDF vectorizer
+        try:
+            print("🔄 Loading TF-IDF vectorizer...")
+            components['tfidf_vectorizer'] = joblib.load(f'{base_path}tfidf_vectorizer.pkl')
+            print("✅ TF-IDF vectorizer loaded")
+        except Exception as e:
+            print(f"❌ Failed to load TF-IDF vectorizer: {e}")
+            import traceback
+            print(f"TF-IDF error details: {traceback.format_exc()}")
+            return None
+        
+        # 3. Load ML models (most likely to have compatibility issues)
+        try:
+            print("🔄 Loading category model...")
+            components['category_model'] = joblib.load(f'{base_path}best_category_model.pkl')
+            print(f"✅ Category model loaded: {type(components['category_model'])}")
+        except Exception as e:
+            print(f"❌ Failed to load category model: {e}")
+            import traceback
+            print(f"Category model error details: {traceback.format_exc()}")
+            return None
+        
+        try:
+            print("🔄 Loading risk model...")
+            components['risk_model'] = joblib.load(f'{base_path}best_risk_model.pkl')
+            print(f"✅ Risk model loaded: {type(components['risk_model'])}")
+        except Exception as e:
+            print(f"❌ Failed to load risk model: {e}")
+            import traceback
+            print(f"Risk model error details: {traceback.format_exc()}")
+            return None
+        
+        # Verify all components are loaded
+        loaded_components = list(components.keys())
+        print(f"🎉 All system components loaded successfully: {', '.join(loaded_components)}")
+        
         return components
         
     except Exception as e:
-        print(f"❌ Error loading components: {e}")
+        print(f"❌ Critical error loading components: {e}")
+        import traceback
+        print(f"Detailed traceback: {traceback.format_exc()}")
         return None
 
 # Health check endpoint
@@ -201,7 +294,8 @@ async def root():
         status_info["endpoints"] = {
             "health": "/health",
             "docs": "/docs",
-            "guidelines": "/api/guidelines"
+            "guidelines": "/api/guidelines",
+            "model_status": "/api/models/status"
         }
         status_info["note"] = "Prediction endpoints unavailable - ML models not loaded"
     
@@ -215,6 +309,55 @@ async def health_check():
         "ml_models_loaded": components_loaded,
         "predictor_ready": predictor is not None,
         "startup_error": startup_error
+    }
+
+# Model status endpoint
+@app.get("/api/models/status")
+async def model_status():
+    """Check the status of all ML models"""
+    base_path = './models/'
+    required_files = [
+        'best_category_model.pkl',
+        'best_risk_model.pkl', 
+        'le_category.pkl',
+        'le_risk.pkl',
+        'tfidf_vectorizer.pkl'
+    ]
+    
+    available_files = []
+    for file in required_files:
+        if os.path.exists(f'{base_path}{file}'):
+            file_size = os.path.getsize(f'{base_path}{file}')
+            available_files.append({"file": file, "size_bytes": file_size})
+    
+    missing_files = [f for f in required_files if f not in [af["file"] for af in available_files]]
+    
+    # Get package versions
+    package_versions = {}
+    try:
+        import numpy as np
+        package_versions['numpy'] = np.__version__
+    except ImportError:
+        package_versions['numpy'] = 'Not available'
+    
+    try:
+        import sklearn
+        package_versions['scikit-learn'] = sklearn.__version__
+    except ImportError:
+        package_versions['scikit-learn'] = 'Not available'
+    
+    try:
+        import joblib as jb
+        package_versions['joblib'] = jb.__version__
+    except ImportError:
+        package_versions['joblib'] = 'Not available'
+    
+    return {
+        "models_loaded": components_loaded,
+        "available_files": available_files,
+        "missing_files": missing_files,
+        "package_versions": package_versions,
+        "components_loaded": list(predictor.components.keys()) if components_loaded and predictor else []
     }
 
 # Image prediction endpoint
