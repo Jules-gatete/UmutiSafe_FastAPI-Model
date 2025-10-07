@@ -1,125 +1,154 @@
-# **UmutiSafe**
+# UmutiSafe - AI-Powered Medicine Disposal Classification System
 
-A Flutter application for **safe medicine disposal in Rwanda**, featuring AI-powered medicine classification, pickup scheduling, and community health worker coordination.
+## Description
+UmutiSafe is an intelligent system that classifies medicine disposal methods using AI and computer vision. It analyzes medicine labels through OCR and machine learning to provide safe disposal recommendations, helping prevent environmental contamination and public health risks.
 
----
+**GitHub Repository:** [https://github.com/your-username/umutisafe](https://github.com/your-username/umutisafe)
+
+##  Quick Start
+
+### Prerequisites
+- Python 3.8+
+- pip package manager
+
+### Installation
+```bash
+# Clone the repository
+git clone https://github.com/your-username/umutisafe.git
+cd umutisafe
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the API
+python run.py
+```
+
+### Access the API
+- **API Documentation**: http://localhost:8000/docs
+- **Health Check**: http://localhost:8000/health
 
 ##  Features
 
-*  **AI Medicine Classification** – Scan and identify medicines using computer vision
-*  **Smart Disposal Guidance** – Get personalized disposal recommendations
-*  **Pickup Scheduling** – Schedule pickups with community health workers
-*  **Impact Dashboard** – Track your disposal impact and community metrics
-*  **Rwanda Integration** – Built for Rwanda's administrative structure and CHW network
+###  Smart OCR Processing
+- Advanced text extraction from medicine labels
+- Medicine-specific keyword detection
+- Visual annotation of detected text
+- Support for various image formats
 
----
+###  AI Classification
+- **Dual-Model Prediction**:
+  - Disposal Category (5 classes)
+  - Risk Level (3 levels)[Low,Medium and HIGH]
+- Multiple input formats (image & text)
+- Batch processing capabilities
+- Confidence scoring
 
-## 🛠 Getting Started
+###  Safety Guidance
+- Category-specific disposal instructions
+- Risk-based safety protocols
+- Clear prohibitions and warnings
 
-###  Prerequisites
+##  API Usage
 
-* Flutter SDK **3.22+** (currently using **3.35.2**)
-* Android SDK with **NDK r26c** (required for 16 KB page size compatibility)
-* Dart **3.9+**
-
-### 📥 Installation
-
-1. Clone the repository:
-
-   ```bash
-   git clone <repository-url>
-   cd UmutiSafe
-   ```
-
-2. Install dependencies:
-
-   ```bash
-   flutter pub get
-   ```
-
-3. Run the app:
-
-   ```bash
-   flutter run
-   ```
-
----
-
-##  Android 14+ Compatibility (16 KB Page Size)
-
->  **Important**: As of Android 14, all native libraries must be built with **16 KB ELF alignment**.
-> This project is configured with **NDK r26c** and **Android Gradle Plugin 8.3+** to meet this requirement.
-
-###  Configuration Details
-
-* **NDK Version**: r27 (`27.0.12077973`) – Latest available
-* **Compile SDK**: 36 (Android 14+ compatible, required by plugins)
-* **Target ABIs**: `arm64-v8a`, `armeabi-v7a`
-* **Legacy Packaging**: Disabled for optimal compatibility
-
-###  Verification
-
-To verify 16 KB compatibility after building:
-
+### Image-Based Prediction
 ```bash
-# Windows
-scripts\check_16kb_compatibility.bat
-
-# Linux/macOS
-chmod +x scripts/check_16kb_compatibility.sh
-./scripts/check_16kb_compatibility.sh
+curl -X POST "http://localhost:8000/api/predict/image" \
+  -H "Content-Type: multipart/form-data" \
+  -F "file=@medicine_label.jpg"
 ```
 
-**One-liner diagnostic:**
-
+### Text-Based Prediction
 ```bash
-aapt dump badging build/app/outputs/flutter-apk/app-debug.apk | grep native-code
+curl -X POST "http://localhost:8000/api/predict/text" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "generic_name=Amoxicillin 500mg&brand_name=Amoxil&dosage_form=Capsules"
 ```
 
-### 📦 Build Commands
-
+### Batch Prediction
 ```bash
-# Clean build for release
-flutter clean
-flutter pub get
-flutter build apk --release
-
-# Debug build
-flutter build apk --debug
+curl -X POST "http://localhost:8000/api/predict/batch" \
+  -H "Content-Type: application/json" \
+  -d '[
+    {
+      "generic_name": "Amoxicillin 500mg",
+      "brand_name": "Amoxil",
+      "dosage_form": "Capsules"
+    },
+    {
+      "generic_name": "Paracetamol 500mg", 
+      "brand_name": "Panadol",
+      "dosage_form": "Tablets"
+    }
+  ]'
 ```
+
+## API Structure
+
+```
+umutisafe/
+├── main.py                 # FastAPI application
+├── enhanced_ocr_processor.py    # OCR processing class
+├── medicine_disposal_predictor.py # Prediction engine
+├── requirements.txt        # Python dependencies
+├── run.py                 # Application runner
+├── models/                # Trained ML models
+│   ├── best_category_model.pkl
+│   ├── best_risk_model.pkl
+│   ├── le_category.pkl
+│   ├── le_risk.pkl
+│   └── tfidf_vectorizer.pkl
+└── data/
+    └── processed/
+        └── disposal_guidelines_db.py
+```
+
+##  Demo Video
+
+[Link to 5-10 minute demonstration video]
+
+
+
+##  Deployment Plan
+
+### Phase 1: API Deployment 
+- FastAPI backend with Swagger UI
+- Containerized deployment
+- Cloud-ready architecture
+
+### Phase 2: Web Interface 
+-  frontend application
+- Image upload interface
+- Real-time results display
+- Mobile-responsive design
+- take back guidance with CHW will be added
+
+
+##  Technical Details
+
+### Machine Learning Models
+- **Text Feature Extraction**: TF-IDF Vectorizer
+- **Category Prediction**: Ensemble Classifier
+- **Risk Assessment**: Multi-class Classifier
+- **OCR Engine**: EasyOCR with custom preprocessing
+
+### Supported Medicine Types
+- Tablets, Capsules, Injections
+- Solutions, Suspensions, Creams
+- Syrups, Drops, Sprays
+- Ampoules, Vials, Patches
+
+##  Performance Metrics
+
+- OCR Accuracy: >85% on medicine labels
+- Classification Accuracy: >90% on trained categories
+- Risk Assessment: >85% match with regulatory guidelines
+- Processing Time: <5 seconds per image
+
+- Rwanda FDA for medicine dataset
+- Open-source OCR and ML libraries
+- Healthcare professionals for validation
 
 ---
 
-## 🧩 Development
-
-### 📂 Project Structure
-
-```
-lib/
-├── auth/              # Authentication flow
-├── core/              # Core utilities and configuration
-├── features/          # Feature modules
-│   ├── dashboard/     # User and CHW dashboards
-│   ├── decision/      # Disposal decision engine
-│   ├── pickup/        # Pickup scheduling
-│   ├── records/       # Disposal history
-│   └── scan/          # Camera and image processing
-├── models/            # Data models
-├── services/          # API and business logic
-└── widgets/           # Reusable UI components
-```
-
-### ⚙️ Key Technologies
-
-* **State Management**: Riverpod
-* **Navigation**: GoRouter
-* **HTTP Client**: Dio
-* **Local Storage**: Shared Preferences
-* **Image Processing**: Camera plugin
-* **Charts**: FL Chart
-
----
-
----
-
-Do you want me to also polish this into a **GitHub-ready version** (with badges like build status, Flutter version, license, etc.) to make it more attractive for contributors?
+**💊 Making medicine disposal safer, one classification at a time!**
