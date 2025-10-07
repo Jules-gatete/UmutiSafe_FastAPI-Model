@@ -105,7 +105,7 @@ umutisafe/
 
 ##  Demo Video
 
-[Link to 5-10 minute demonstration video]
+[Link demo video](https://youtu.be/BR4Ove8GRzY)
 
 
 
@@ -152,5 +152,6 @@ umutisafe/
 ---
 
 **💊 Making medicine disposal safer, one classification at a time!**
+
 
 
