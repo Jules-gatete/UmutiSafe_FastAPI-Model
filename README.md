@@ -14,14 +14,14 @@ UmutiSafe is an intelligent system that classifies medicine disposal methods usi
 ### Installation
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/umutisafe.git
-cd umutisafe
+git clone [https://github.com/Jules-gatete/Mission_Capstone.git](https://github.com/Jules-gatete/Mission_Capstone.git)
+
 
 # Install dependencies
 pip install -r requirements.txt
 
 # Run the API
-python run.py
+python run.py or uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ### Access the API
@@ -152,4 +152,5 @@ umutisafe/
 ---
 
 **💊 Making medicine disposal safer, one classification at a time!**
+
 
