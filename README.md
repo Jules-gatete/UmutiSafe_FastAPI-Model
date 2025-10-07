@@ -8,7 +8,7 @@ UmutiSafe is an intelligent system that classifies medicine disposal methods usi
 ##  Quick Start
 
 ### Prerequisites
-- Python 3.8+
+- Python version = python-3.11.9
 - pip package manager
 
 ### Installation
@@ -152,6 +152,7 @@ umutisafe/
 ---
 
 **💊 Making medicine disposal safer, one classification at a time!**
+
 
 
 
