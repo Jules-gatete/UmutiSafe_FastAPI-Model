@@ -1,11 +1,26 @@
 # main.py
+import os
+import PIL.Image
+import PIL
+
+# Fix for PIL ANTIALIAS issue - MUST BE AT THE TOP
+if not hasattr(PIL.Image, 'ANTIALIAS'):
+    if hasattr(PIL.Image, 'Resampling'):
+        PIL.Image.ANTIALIAS = PIL.Image.Resampling.LANCZOS
+        print("✅ Patched ANTIALIAS to Resampling.LANCZOS")
+    elif hasattr(PIL.Image, 'LANCZOS'):
+        PIL.Image.ANTIALIAS = PIL.Image.LANCZOS
+        print("✅ Patched ANTIALIAS to LANCZOS")
+    else:
+        PIL.Image.ANTIALIAS = None
+        print("⚠️  Could not patch ANTIALIAS")
+
+print(f"📦 PIL version: {PIL.__version__}")
+
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.openapi.docs import get_swagger_ui_html
 import uvicorn
-import io
 import pandas as pd
 import numpy as np
 import re
@@ -13,16 +28,51 @@ import json
 from datetime import datetime
 import joblib
 import cv2
-from PIL import Image
 import easyocr
-import os
-import sys
-from typing import Optional, Dict, Any
 import importlib.util
 
 # Import your existing classes
 from enhanced_ocr_processor import EnhancedOCRProcessor
 from medicine_disposal_predictor import MedicineDisposalPredictor
+
+# JSON Serialization Helpers
+def convert_numpy_types(obj):
+    """Recursively convert numpy types to native Python types, including dictionary keys"""
+    if isinstance(obj, dict):
+        converted_dict = {}
+        for key, value in obj.items():
+            # Convert key to string if it's a numpy type
+            if isinstance(key, (np.integer, np.int32, np.int64)):
+                converted_key = int(key)
+            elif isinstance(key, (np.floating, np.float32, np.float64)):
+                converted_key = float(key)
+            elif hasattr(key, 'item'):
+                converted_key = key.item()
+            else:
+                converted_key = key
+            
+            # Ensure key is string for JSON serialization
+            if not isinstance(converted_key, (str, int, float, bool)) and converted_key is not None:
+                converted_key = str(converted_key)
+            
+            converted_dict[converted_key] = convert_numpy_types(value)
+        return converted_dict
+    elif isinstance(obj, list):
+        return [convert_numpy_types(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(convert_numpy_types(item) for item in obj)
+    elif isinstance(obj, (np.integer, np.int32, np.int64)):
+        return int(obj)
+    elif isinstance(obj, (np.floating, np.float32, np.float64)):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, (pd.Timestamp, datetime)):
+        return obj.isoformat()
+    elif hasattr(obj, 'item'):
+        return obj.item()
+    else:
+        return obj
 
 # Load the disposal guidelines from your Python file
 disposal_guidelines = {}
@@ -35,15 +85,6 @@ try:
         spec.loader.exec_module(disposal_guidelines_module)
         disposal_guidelines = disposal_guidelines_module.disposal_guidelines
         print("✅ Disposal guidelines database loaded successfully")
-        
-        # Debug: Print the structure of the first guideline to understand the format
-        if disposal_guidelines and len(disposal_guidelines) > 0:
-            first_key = list(disposal_guidelines.keys())[0]
-            print(f"📋 Sample guideline structure for '{first_key}':")
-            print(f"   Type: {type(disposal_guidelines[first_key])}")
-            if isinstance(disposal_guidelines[first_key], dict):
-                for k, v in disposal_guidelines[first_key].items():
-                    print(f"   {k}: {type(v)} - {v}")
     else:
         print("⚠️  Disposal guidelines file not found")
         disposal_guidelines = {}
@@ -53,7 +94,7 @@ except Exception as e:
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="UmutiSafe Medicine  Classification/Disposal API",
+    title="UmutiSafe Medicine Classification/Disposal API",
     description="Medicine disposal classification and safety guidance system",
     version="1.0.0",
     docs_url="/docs",
@@ -72,27 +113,50 @@ app.add_middleware(
 # Global variables
 predictor = None
 components_loaded = False
+startup_error = None
 
 # Load system components at startup
 @app.on_event("startup")
 async def startup_event():
-    global predictor, components_loaded
+    global predictor, components_loaded, startup_error
     try:
         components = load_system_components()
         if components:
             predictor = MedicineDisposalPredictor(components)
             components_loaded = True
-            print("✅ UmutiSafe API started successfully!")
+            startup_error = None
+            print("✅ UmutiSafe API started successfully with ML models!")
         else:
-            print("❌ Failed to load system components")
+            components_loaded = False
+            startup_error = "ML models failed to load"
+            print("❌ UmutiSafe API started without ML models")
     except Exception as e:
+        components_loaded = False
+        startup_error = str(e)
         print(f"❌ Startup error: {e}")
 
 def load_system_components():
-    """Load all system components"""
+    """Load all system components - returns None if fails"""
     try:
-        # Update paths for deployment
         base_path = './models/'
+        
+        # Check if model files exist
+        required_files = [
+            'best_category_model.pkl',
+            'best_risk_model.pkl', 
+            'le_category.pkl',
+            'le_risk.pkl',
+            'tfidf_vectorizer.pkl'
+        ]
+        
+        missing_files = []
+        for file in required_files:
+            if not os.path.exists(f'{base_path}{file}'):
+                missing_files.append(file)
+        
+        if missing_files:
+            print(f"⚠️  Missing model files: {', '.join(missing_files)}")
+            return None
         
         components = {
             'category_model': joblib.load(f'{base_path}best_category_model.pkl'),
@@ -112,25 +176,40 @@ def load_system_components():
 # Health check endpoint
 @app.get("/")
 async def root():
-    return {
+    status_info = {
         "message": "Welcome to UmutiSafe Medicine Classification/Disposal API",
-        "status": "operational" if components_loaded else "initializing",
+        "status": "operational" if components_loaded else "degraded",
         "version": "1.0.0",
-        "endpoints": {
+        "ml_models_loaded": components_loaded,
+        "startup_error": startup_error
+    }
+    
+    if components_loaded:
+        status_info["endpoints"] = {
             "health": "/health",
             "docs": "/docs",
             "predict_image": "/api/predict/image",
             "predict_text": "/api/predict/text",
             "batch_predict": "/api/predict/batch"
         }
-    }
+    else:
+        status_info["endpoints"] = {
+            "health": "/health",
+            "docs": "/docs",
+            "guidelines": "/api/guidelines"
+        }
+        status_info["note"] = "Prediction endpoints unavailable - ML models not loaded"
+    
+    return status_info
 
 @app.get("/health")
 async def health_check():
     return {
-        "status": "healthy" if components_loaded else "unhealthy",
+        "status": "healthy" if components_loaded else "degraded",
         "timestamp": datetime.now().isoformat(),
-        "components_loaded": components_loaded
+        "ml_models_loaded": components_loaded,
+        "predictor_ready": predictor is not None,
+        "startup_error": startup_error
     }
 
 # Image prediction endpoint
@@ -141,8 +220,11 @@ async def predict_from_image(file: UploadFile = File(...)):
     
     - **file**: Upload a clear image of medicine label (JPEG, PNG, JPG)
     """
-    if not components_loaded:
-        raise HTTPException(status_code=503, detail="Service not ready")
+    if not components_loaded or predictor is None:
+        raise HTTPException(
+            status_code=503, 
+            detail="Service unavailable - ML models not loaded. Please check server logs."
+        )
     
     # Validate file type
     allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
@@ -158,6 +240,9 @@ async def predict_from_image(file: UploadFile = File(...)):
         
         # Process with predictor
         result = predictor.predict_from_image(image_data)
+        
+        # Convert numpy types to native Python types
+        result = convert_numpy_types(result)
         
         return JSONResponse(content=result)
         
@@ -180,8 +265,11 @@ async def predict_from_text(
     - **dosage_form**: Optional - Dosage form
     - **packaging_type**: Optional - Packaging type
     """
-    if not components_loaded:
-        raise HTTPException(status_code=503, detail="Service not ready")
+    if not components_loaded or predictor is None:
+        raise HTTPException(
+            status_code=503, 
+            detail="Service unavailable - ML models not loaded. Please check server logs."
+        )
     
     try:
         result = predictor.process_text_input(
@@ -190,6 +278,9 @@ async def predict_from_text(
             dosage_form=dosage_form,
             packaging_type=packaging_type
         )
+        
+        # Convert numpy types to native Python types
+        result = convert_numpy_types(result)
         
         return JSONResponse(content=result)
         
@@ -220,8 +311,11 @@ async def batch_predict(medicines: list):
     ]
     ```
     """
-    if not components_loaded:
-        raise HTTPException(status_code=503, detail="Service not ready")
+    if not components_loaded or predictor is None:
+        raise HTTPException(
+            status_code=503, 
+            detail="Service unavailable - ML models not loaded. Please check server logs."
+        )
     
     try:
         results = []
@@ -232,7 +326,8 @@ async def batch_predict(medicines: list):
                 dosage_form=medicine.get('dosage_form', ''),
                 packaging_type=medicine.get('packaging_type', 'Unknown')
             )
-            results.append(result)
+            # Convert numpy types for each result
+            results.append(convert_numpy_types(result))
         
         return {
             "batch_id": f"batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
@@ -264,13 +359,15 @@ async def get_statistics():
     """Get API usage statistics"""
     return {
         "api_version": "1.0.0",
-        "status": "operational",
-        "components_loaded": components_loaded,
+        "status": "operational" if components_loaded else "degraded",
+        "ml_models_loaded": components_loaded,
+        "predictor_ready": predictor is not None,
+        "startup_error": startup_error,
         "startup_time": datetime.now().isoformat(),
         "supported_features": {
-            "image_processing": True,
-            "text_prediction": True,
-            "batch_processing": True,
+            "image_processing": components_loaded,
+            "text_prediction": components_loaded,
+            "batch_processing": components_loaded,
             "guidelines_lookup": True
         }
     }
@@ -290,11 +387,19 @@ async def not_found_handler(request, exc):
         content={"detail": "Endpoint not found"}
     )
 
+@app.exception_handler(503)
+async def service_unavailable_handler(request, exc):
+    return JSONResponse(
+        status_code=503,
+        content={"detail": str(exc.detail)}
+    )
+
 if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=8000,
-        reload=False  # Disable reload in production,
+        port=port,
+        reload=False,  # Disable reload in production
         log_level="info"
     )
