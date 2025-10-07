@@ -25,8 +25,8 @@ python run.py or uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ### Access the API
-- **API Documentation**: http://localhost:8000/docs
-- **Health Check**: http://localhost:8000/health
+- **API Documentation**: https://mission-capstone.onrender.com/docs
+- **Health Check**: https://mission-capstone.onrender.com/health
 
 ##  Features
 
@@ -152,6 +152,7 @@ umutisafe/
 ---
 
 **💊 Making medicine disposal safer, one classification at a time!**
+
 
 
 
