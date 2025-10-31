@@ -1,32 +1,32 @@
-# UmutiSafe - AI-Powered Medicine Disposal Classification System
+# UmutiSafe -  Medicine Disposal Classification/Guidance System
 
 ## Description
 UmutiSafe is an intelligent system that classifies medicine disposal methods using AI and computer vision. It analyzes medicine labels through OCR and machine learning to provide safe disposal recommendations, helping prevent environmental contamination and public health risks.
 
-**GitHub Repository:** [https://github.com/your-username/umutisafe](https://github.com/your-username/umutisafe)
+**GitHub Repository:** [https://github.com/Jules-gatete/Mission_Capstone.git](https://github.com/Jules-gatete/Mission_Capstone.git)
 
 ##  Quick Start
 
 ### Prerequisites
-- Python 3.8+
+- Python version = python-3.11.9
 - pip package manager
 
 ### Installation
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/umutisafe.git
-cd umutisafe
+git clone [https://github.com/Jules-gatete/Mission_Capstone.git](https://github.com/Jules-gatete/Mission_Capstone.git)
+
 
 # Install dependencies
 pip install -r requirements.txt
 
 # Run the API
-python run.py
+python run.py or uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ### Access the API
-- **API Documentation**: http://localhost:8000/docs
-- **Health Check**: http://localhost:8000/health
+- **API Documentation**: https://mission-capstone.onrender.com/docs
+- **Health Check**: https://mission-capstone.onrender.com/health
 
 ##  Features
 
@@ -105,7 +105,7 @@ umutisafe/
 
 ##  Demo Video
 
-[Link to 5-10 minute demonstration video]
+[Link demo video](https://youtu.be/BR4Ove8GRzY)
 
 
 
@@ -152,3 +152,8 @@ umutisafe/
 ---
 
 **💊 Making medicine disposal safer, one classification at a time!**
+
+
+
+
+
