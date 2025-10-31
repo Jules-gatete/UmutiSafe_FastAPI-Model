@@ -19,6 +19,8 @@ print(f"📦 PIL version: {PIL.__version__}")
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 import uvicorn
 import pandas as pd
 import numpy as np
@@ -30,6 +32,7 @@ import cv2
 import easyocr
 import os
 import importlib.util
+from pathlib import Path
 
 # Import your existing classes
 from enhanced_ocr_processor import EnhancedOCRProcessor
@@ -91,14 +94,16 @@ def convert_numpy_types(obj):
 # Load the disposal guidelines from your Python file
 disposal_guidelines = {}
 try:
-    disposal_guidelines_db_path = './data/processed/disposal_guidelines_db.py'
-    if os.path.exists(disposal_guidelines_db_path):
-        # Import the disposal_guidelines dictionary properly
-        spec = importlib.util.spec_from_file_location("disposal_guidelines_db", disposal_guidelines_db_path)
-        disposal_guidelines_module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(disposal_guidelines_module)
-        disposal_guidelines = disposal_guidelines_module.disposal_guidelines
-        print("✅ Disposal guidelines database loaded successfully")
+    candidates = ['./data/processed/disposal_guidelines_db.py', './disposal_guidelines_db.py', './app/disposal_guidelines_db.py']
+    for p in candidates:
+        if os.path.exists(p):
+            # Import the disposal_guidelines dictionary properly
+            spec = importlib.util.spec_from_file_location("disposal_guidelines_db", p)
+            disposal_guidelines_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(disposal_guidelines_module)
+            disposal_guidelines = disposal_guidelines_module.disposal_guidelines
+            print(f"✅ Disposal guidelines database loaded from {p}")
+            break
     else:
         print("⚠️  Disposal guidelines file not found")
         disposal_guidelines = {}
@@ -114,6 +119,10 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# Mount static files for frontend
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
 
 # CORS middleware
 app.add_middleware(
@@ -178,9 +187,9 @@ class MedicineDisposalPredictor:
         response = {
             'success': True,
             'ocr_info': {
-                'confidence': float(ocr_result['confidence_avg']),  # Convert to float
+                'confidence': float(ocr_result['confidence_avg']),
                 'extracted_info': extracted_info,
-                'medicine_texts_found': int(len(ocr_result['medicine_texts'])),  # Convert to int
+                'medicine_texts_found': int(len(ocr_result['medicine_texts'])),
             },
             'medicine_info': {
                 'generic_name': generic_name,
@@ -279,8 +288,7 @@ class MedicineDisposalPredictor:
             # Create probabilities dictionary for categories - ensure native Python types
             probabilities = {}
             for i, prob in enumerate(category_proba):
-                category_name = str(le_category.classes_[i])  # Ensure string key
-                # Convert numpy float to Python float
+                category_name = str(le_category.classes_[i])
                 probabilities[category_name] = float(round(prob, 3))
             
             # Convert predictions to native Python types
@@ -362,34 +370,42 @@ async def startup_event():
 def load_system_components():
     """Load all system components - returns None if fails"""
     try:
-        base_path = './models/'
-        
-        # Check if model files exist
+        # Search for model files
         required_files = [
             'best_category_model.pkl',
-            'best_risk_model.pkl', 
+            'best_risk_model.pkl',
             'le_category.pkl',
             'le_risk.pkl',
             'tfidf_vectorizer.pkl'
         ]
-        
+
+        search_paths = ['./models/', './', './app/models/']
+        found_paths = {}
         missing_files = []
+
         for file in required_files:
-            if not os.path.exists(f'{base_path}{file}'):
+            found = False
+            for sp in search_paths:
+                candidate = os.path.join(sp, file)
+                if os.path.exists(candidate):
+                    found_paths[file] = candidate
+                    found = True
+                    break
+            if not found:
                 missing_files.append(file)
-        
+
         if missing_files:
             print(f"⚠️  Missing model files: {', '.join(missing_files)}")
             return None
-        
+
         components = {
-            'category_model': joblib.load(f'{base_path}best_category_model.pkl'),
-            'risk_model': joblib.load(f'{base_path}best_risk_model.pkl'),
-            'le_category': joblib.load(f'{base_path}le_category.pkl'),
-            'le_risk': joblib.load(f'{base_path}le_risk.pkl'),
-            'tfidf_vectorizer': joblib.load(f'{base_path}tfidf_vectorizer.pkl')
+            'category_model': joblib.load(found_paths['best_category_model.pkl']),
+            'risk_model': joblib.load(found_paths['best_risk_model.pkl']),
+            'le_category': joblib.load(found_paths['le_category.pkl']),
+            'le_risk': joblib.load(found_paths['le_risk.pkl']),
+            'tfidf_vectorizer': joblib.load(found_paths['tfidf_vectorizer.pkl'])
         }
-        
+
         print("✅ All system components loaded successfully")
         return components
         
@@ -400,31 +416,19 @@ def load_system_components():
 # Health check endpoint
 @app.get("/")
 async def root():
-    status_info = {
+    return {
         "message": "Welcome to UmutiSafe Medicine Classification/Disposal API",
         "status": "operational" if components_loaded else "degraded",
         "version": "1.0.0",
         "ml_models_loaded": components_loaded,
-        "startup_error": startup_error
-    }
-    
-    if components_loaded:
-        status_info["endpoints"] = {
+        "endpoints": {
             "health": "/health",
             "docs": "/docs",
             "predict_image": "/api/predict/image",
             "predict_text": "/api/predict/text",
-            "batch_predict": "/api/predict/batch"
-        }
-    else:
-        status_info["endpoints"] = {
-            "health": "/health",
-            "docs": "/docs",
             "guidelines": "/api/guidelines"
         }
-        status_info["note"] = "Prediction endpoints unavailable - ML models not loaded"
-    
-    return status_info
+    }
 
 @app.get("/health")
 async def health_check():
@@ -432,8 +436,7 @@ async def health_check():
         "status": "healthy" if components_loaded else "degraded",
         "timestamp": datetime.now().isoformat(),
         "ml_models_loaded": components_loaded,
-        "predictor_ready": predictor is not None,
-        "startup_error": startup_error
+        "predictor_ready": predictor is not None
     }
 
 # Image prediction endpoint
@@ -441,13 +444,11 @@ async def health_check():
 async def predict_from_image(file: UploadFile = File(...)):
     """
     Predict disposal category and risk level from medicine label image
-    
-    - **file**: Upload a clear image of medicine label (JPEG, PNG, JPG)
     """
     if not components_loaded or predictor is None:
         raise HTTPException(
             status_code=503, 
-            detail="Service unavailable - ML models not loaded. Please check server logs."
+            detail="Service unavailable - ML models not loaded"
         )
     
     # Validate file type
@@ -483,16 +484,11 @@ async def predict_from_text(
 ):
     """
     Predict disposal category and risk level from text input
-    
-    - **generic_name**: Required - Medicine generic name with strength
-    - **brand_name**: Optional - Brand name
-    - **dosage_form**: Optional - Dosage form
-    - **packaging_type**: Optional - Packaging type
     """
     if not components_loaded or predictor is None:
         raise HTTPException(
             status_code=503, 
-            detail="Service unavailable - ML models not loaded. Please check server logs."
+            detail="Service unavailable - ML models not loaded"
         )
     
     try:
@@ -529,7 +525,6 @@ if __name__ == "__main__":
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
+        port=int(os.environ.get("PORT", 8000)),
+        reload=os.environ.get("DEBUG", "False").lower() == "true"
     )

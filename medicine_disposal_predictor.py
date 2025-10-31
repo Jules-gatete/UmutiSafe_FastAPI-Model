@@ -21,18 +21,18 @@ class MedicineDisposalPredictor:
     def _load_disposal_guidelines(self):
         """Load disposal guidelines"""
         try:
-            disposal_guidelines_db_path = './data/processed/disposal_guidelines_db.py'
-            if os.path.exists(disposal_guidelines_db_path):
-                # Import the disposal_guidelines dictionary properly
-                spec = importlib.util.spec_from_file_location("disposal_guidelines_db", disposal_guidelines_db_path)
-                disposal_guidelines_module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(disposal_guidelines_module)
-                disposal_guidelines = disposal_guidelines_module.disposal_guidelines
-                print("✅ Disposal guidelines database loaded successfully")
-                return disposal_guidelines
-            else:
-                print("⚠️  Disposal guidelines file not found")
-                return self._create_fallback_guidelines()
+            candidates = ['./data/processed/disposal_guidelines_db.py', './disposal_guidelines_db.py']
+            for p in candidates:
+                if os.path.exists(p):
+                    # Import the disposal_guidelines dictionary properly
+                    spec = importlib.util.spec_from_file_location("disposal_guidelines_db", p)
+                    disposal_guidelines_module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(disposal_guidelines_module)
+                    disposal_guidelines = disposal_guidelines_module.disposal_guidelines
+                    print(f"✅ Disposal guidelines database loaded from {p}")
+                    return disposal_guidelines
+            print("⚠️  Disposal guidelines file not found")
+            return self._create_fallback_guidelines()
         except Exception as e:
             print(f"⚠️  Error loading disposal guidelines: {e}")
             return self._create_fallback_guidelines()
