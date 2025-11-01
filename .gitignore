@@ -1,1 +1,37 @@
 env/
+venv/
+.venv/
+
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+
+# OS files
+.DS_Store
+
+# Editor directories
+.vscode/
+.idea/
+
+# Logs and runtime
+*.log
+.python-version
+
+# Environment files
+.env
+
+# Test cache
+.pytest_cache/
+
+# Build artifacts
+build/
+dist/
+
+# Model artifacts (if you prefer to store them outside git)
+*.pkl
+models/
+
+# Jupyter
+.ipynb_checkpoints/
+
+.APP_DOCUMENTATION.md

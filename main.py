@@ -127,9 +127,24 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 # CORS middleware
+# Allow local preview origins so browser preview can reach the model service.
+# Keep wildcard as fallback if you prefer open access in production change accordingly.
+origins = [
+    "http://localhost:4173",
+    "http://localhost:4174",
+    "http://localhost:4175",
+    "http://localhost:5000",
+    "http://localhost:8000",
+    # Render / production backend (allow frontend to call backend)
+    "https://umutisafe-backend.onrender.com",
+    # Vercel frontend app
+    "https://umuti-safe-app.vercel.app",
+    
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins + ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -488,6 +503,7 @@ async def root():
     }
 
 @app.get("/health")
+@app.get("/api/health")
 async def health_check():
     return {
         "status": "healthy" if components_loaded else "degraded",
