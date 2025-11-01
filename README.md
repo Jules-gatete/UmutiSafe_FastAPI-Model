@@ -1,7 +1,3 @@
-Sure — here’s a refined and polished version of your **README.md** with clearer structure, improved formatting, consistent tone, and a few readability and professionalism tweaks:
-
----
-
 # 💊 UmutiSafe — Intelligent Medicine Disposal Classification & Guidance System
 
 ## 🧠 Overview
