@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 💊 UmutiSafe — Medicine Classification & Disposal API
 
 This repository contains the FastAPI backend for UmutiSafe — an AI-powered system that extracts text from medicine labels (OCR) and predicts safe disposal categories and risk levels for medicines.
@@ -206,6 +207,8 @@ Sure — here’s a refined and polished version of your **README.md** with clea
 
 ---
 
+=======
+>>>>>>> 5b48d510c9b5db75710a727c68e5e7960d892365
 # 💊 UmutiSafe — Intelligent Medicine Disposal Classification & Guidance System
 
 ## 🧠 Overview
